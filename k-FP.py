@@ -3,10 +3,9 @@ import sys
 from sys import stdout
 import RF_fextract
 import numpy as np
-#import matplotlib.pylab as plt
 import operator
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.cross_validation import cross_val_score
+from sklearn.model_selection import cross_val_score     # CHANGE: new verion of library
 from sklearn import metrics
 from sklearn import tree
 import sklearn.metrics as skm
@@ -17,49 +16,50 @@ import os
 from collections import defaultdict
 import argparse
 from itertools import chain
-#from tqdm import *
 
 # re-seed the generator
 #np.random.seed(1234)
 
 ### Paths to data ###
+# CHANGE: directory that will use when extracting feature
+current_dir = os.path.dirname(__file__)
+rootdir = os.path.join(current_dir, 'data')
+alexa_monitored_data = f"{rootdir}/alexa"
+hs_monitored_data = f"{rootdir}/hs_mon"
+unmonitored_data = f"{rootdir}/unmon"
 
-rootdir = r"../data/"
-alexa_monitored_data = rootdir + r"Alexa_Monitored/"
-hs_monitored_data = rootdir + r"HS_Monitored/"
-#monitored_data = rootdir + r"Monitored/"
-unmonitored_data = rootdir + r"Unmonitored/"
-dic_of_feature_data = rootdir + r"Features"
+dic_of_feature_data = f"{rootdir}/feature_name.pkl"      # CHANGE: final feature that will use
 
 
 ### Parameters ###
 # Number of sites, number of instances per site, number of (alexa/hs) monitored training instances per site, Number of trees for RF etc.
 
+num_Trees = 1000
+
 alexa_sites = 55
-alexa_instances = 100
-alexa_train_inst = 60
+alexa_instances = 800
+alexa_train_inst = 640
+
+mon_train_inst = alexa_train_inst
+mon_test_inst = alexa_instances - mon_train_inst
 
 hs_sites = 30
 hs_instances = 100
 hs_train_inst = 60
 
-#assert alexa_instances == hs_instances
-#assert alexa_train_inst == hs_train_inst
-mon_train_inst = alexa_train_inst
-mon_test_inst = alexa_instances - mon_train_inst
-
-num_Trees = 1000
-
 unmon_total = 100000
 unmon_train = 5000
+
+n_jobs = 64
 
 
 ############ Feeder functions ############
 
 def chunks(l, n):
     """ Yield successive n-sized chunks from l."""
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):       # CHANGE: xrange to range
         yield l[i:i+n]
+
 
 def checkequal(lst):
     return lst[1:] == lst[:-1]
@@ -80,7 +80,7 @@ def dictionary_(path_to_dict = dic_of_feature_data, path_to_alexa = alexa_monito
                  'unmonitored_feature': [],
                  'unmonitored_label': []}
 
-    print "Creating Alexa features..."
+    print("Creating Alexa features...")
     for i in range(alexa_sites):
         for j in range(alexa_instances):
             fname = str(i) + "_" + str(j)
@@ -90,9 +90,9 @@ def dictionary_(path_to_dict = dic_of_feature_data, path_to_alexa = alexa_monito
                 g.append(RF_fextract.TOTAL_FEATURES(tcp_dump))
                 data_dict['alexa_feature'].append(g)
                 data_dict['alexa_label'].append((i,j))
-        print i
+        print(i)
 
-    print "Creating HS features..."
+    print("Creating HS features...")
     for i in range(1, hs_sites + 1):
         for j in range(hs_instances):
             fname = str(i) + "_" + str(j) + ".txt"
@@ -102,13 +102,13 @@ def dictionary_(path_to_dict = dic_of_feature_data, path_to_alexa = alexa_monito
                 g.append(RF_fextract.TOTAL_FEATURES(tcp_dump))
                 data_dict['hs_feature'].append(g)
                 data_dict['hs_label'].append((i,j))
-        print i
+        print(i)
 
-    print "Creating Unmonitored features..."
+    print("Creating Unmonitored features...")
     d, e = alexa_sites + 1, 0
     while e < unmon_sites:
         if e%500 == 0  and e>0:
-            print e
+            print(e)
         if os.path.exists(path_to_unmon + str(d)):
             tcp_dump = open(path_to_unmon + str(d)).readlines()
             g = []
@@ -131,7 +131,7 @@ def dictionary_(path_to_dict = dic_of_feature_data, path_to_alexa = alexa_monito
 def mon_train_test_references(mon_type, path_to_dict = dic_of_feature_data):
     """Prepare monitored data in to training and test sets."""
 
-    fileObject1 = open(path_to_dict,'r')
+    fileObject1 = open(path_to_dict, 'rb')      # CHANGE: 'r' to 'rb'
     dic = dill.load(fileObject1)
 
     if mon_type == 'alexa':
@@ -146,7 +146,7 @@ def mon_train_test_references(mon_type, path_to_dict = dic_of_feature_data):
     test_data = []
     test_label = []
     for i in range(len(split_data)):
-        temp = zip(split_data[i], split_target[i])
+        temp = list(zip(split_data[i], split_target[i]))        # CHANGE: convert zip to list
         random.shuffle(temp)
         data, label = zip(*temp)
         training_data.extend(data[:mon_train_inst])
@@ -156,13 +156,17 @@ def mon_train_test_references(mon_type, path_to_dict = dic_of_feature_data):
 
     flat_train_data = []
     flat_test_data = []
+
+    # CHANGE: tuple () to list []
     for tr in training_data:
-        flat_train_data.append(list(sum(tr, ())))
+        flat_train_data.append(list(sum(tr, [])))
     for te in test_data:
-        flat_test_data.append(list(sum(te, ())))
+        flat_test_data.append(list(sum(te, [])))
+
     training_features =  zip(flat_train_data, training_label)
     test_features =  zip(flat_test_data, test_label)
     return training_features, test_features
+
 
 def unmon_train_test_references(path_to_dict = dic_of_feature_data):
     """Prepare unmonitored data in to training and test sets."""
@@ -189,38 +193,40 @@ def unmon_train_test_references(path_to_dict = dic_of_feature_data):
 
     flat_train_data = []
     flat_test_data = []
+
     for tr in training_data:
         flat_train_data.append(list(sum(tr, ())))
     for te in test_data:
         flat_test_data.append(list(sum(te, ())))
+
     training_features =  zip(flat_train_data, training_label)
     test_features =  zip(flat_test_data, test_label)
     return training_features, test_features
 
 
-def RF_closedworld(mon_type, path_to_dict = dic_of_feature_data):
+def RF_closedworld(mon_type, path_to_dict = dic_of_feature_data, n_jobs = n_jobs):
     '''Closed world RF classification of data -- only uses sk.learn classification - does not do additional k-nn.'''
 
     training, test = mon_train_test_references(mon_type, path_to_dict)
     tr_data, tr_label1 = zip(*training)
-    tr_label = zip(*tr_label1)[0]
+
+    # CHANGE: tuple to list
+    tr_label = list(zip(*tr_label1))[0]
     te_data, te_label1 = zip(*test)
-    te_label = zip(*te_label1)[0]
+    te_label = list(zip(*te_label1))[0]
 
-    print "Monitored type: ", mon_type
-    print
+    print("Monitored type: ", mon_type)
+    print("Training...")
 
-    print "Training ..."
-    model = RandomForestClassifier(n_jobs=2, n_estimators=num_Trees, oob_score = True)
+    model = RandomForestClassifier(n_jobs=n_jobs, n_estimators=num_Trees, oob_score = True)
     model.fit(tr_data, tr_label)
-    print "RF accuracy = ", model.score(te_data, te_label)
-
-    #print "Feature importance scores:"
-    #print model.feature_importances_
+    
+    print("RF accuracy = ", model.score(te_data, te_label))
+    print("Feature importance scores:", model.feature_importances_)
 
     scores = cross_val_score(model, np.array(tr_data), np.array(tr_label))
-    print "cross_val_score = ", scores.mean()
-    #print "OOB score = ", model.oob_score_(tr_data, tr_label)
+    print("cross_val_score = ", scores.mean())
+    print("OOB score = ", model.oob_score_)
 
 
 def RF_openworld(mon_type, path_to_dict = dic_of_feature_data):
@@ -237,7 +243,7 @@ def RF_openworld(mon_type, path_to_dict = dic_of_feature_data):
     te_data, te_label1 = zip(*test)
     te_label = zip(*te_label1)[0]
 
-    print "Training ..."
+    print("Training ...")
     model = RandomForestClassifier(n_jobs=-1, n_estimators=num_Trees, oob_score=True)
     model.fit(tr_data, tr_label)
 
@@ -334,7 +340,7 @@ def distance_stats(mon_type, rootdir, knn=3):
                 TP+=1
     path, dirs, files = os.walk(monitored_directory).next()
     file_count1 = len(files)
-    print "TP = ", TP/float(file_count1)
+    print("TP = ", TP/float(file_count1))
 
     FP = 0
     for subdir, dirs, files in os.walk(unmonitored_directory):
@@ -354,7 +360,7 @@ def distance_stats(mon_type, rootdir, knn=3):
 
     path, dirs, files = os.walk(unmonitored_directory).next()
     file_count2 = len(files)
-    print "FP = ", FP/float(file_count2)
+    print("FP = ", FP/float(file_count2))
     return TP/float(file_count1), FP/float(file_count2)
 
 
@@ -370,37 +376,30 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # feature extraction
     if args.dictionary:
-
         # Example command line:
-        # $ python k-FP.py --dictionary
-
+        # $ python3 k-FP.py --dictionary
         dictionary_()
 
+    # closed world experiments
     elif args.RF_closedworld:
-
         # Example command line:
-        # $ python k-FP.py --RF_closedworld --mon_type alexa
-
+        # $ python3 k-FP.py --RF_closedworld --mon_type alexa
         mon_type = str(args.mon_type[0])
-
         RF_closedworld(mon_type)
 
+    # open world experiments
     elif args.distances:
-
         # Example command line:
-        # $ python k-FP.py --distances --mon_type alexa
-
+        # $ python3 k-FP.py --distances --mon_type alexa
         mon_type = str(args.mon_type[0])
-
         distances(mon_type, path_to_dict = dic_of_feature_data, keep_top=100)
 
+    # evaluation
     elif args.distance_stats:
-
         # Example command line:
-        # $ python k-FP.py --distance_stats --knn 6 --mon_type hs
-
+        # $ python3 k-FP.py --distance_stats --knn 6 --mon_type hs
         knn = int(args.knn[0])
         mon_type = str(args.mon_type[0])
-
         distance_stats(mon_type, rootdir, knn)

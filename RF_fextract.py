@@ -1,12 +1,11 @@
 # -1 is IN, 1 is OUT
-#file format: "direction time size"
+#file format: "direction*timestamp" (tiktok)
 
 import math
 import sys
 import numpy as np
 
 """Feeder functions"""
-
 def neighborhood(iterable):
     iterator = iter(iterable)
     prev = (0)
@@ -17,6 +16,7 @@ def neighborhood(iterable):
         item = next
     yield (prev,item,None)
 
+
 def chunkIt(seq, num):
   avg = len(seq) / float(num)
   out = []
@@ -26,18 +26,35 @@ def chunkIt(seq, num):
     last += avg
   return out
 
-"""Non-feeder functions"""
 
+"""Non-feeder functions"""
+def trunc_zero_padding(trace):
+    start_zero_padding_index = np.asarray(np.where(trace!=0))[0][-1]
+    trace = trace[:(start_zero_padding_index+1)]
+    return trace
+
+
+def get_pkt_list(trace_data, filename=None):
+    trace_data = trunc_zero_padding(trace_data)
+    dta = []
+    for cell in trace_data:
+        if float(cell) > 0:
+            dta.append((float(abs(cell)), 1))
+        else:
+            dta.append((float(abs(cell)), -1))
+    return dta
+
+
+# original, in "direction time size" format
+"""
 def get_pkt_list(trace_data):
     first_line = trace_data[0]
     first_line = first_line.split(" ")
-
     first_time = float(first_line[0])
     dta = []
     for line in trace_data:
         a = line
         b = a.split(" ")
-
         if float(b[1]) > 0:
             #dta.append(((float(b[0])- first_time), abs(int(b[2])), 1))
             dta.append(((float(b[0])- first_time), 1))
@@ -45,6 +62,7 @@ def get_pkt_list(trace_data):
             #dta.append(((float(b[1]) - first_time), abs(int(b[2])), -1))
             dta.append(((float(b[0]) - first_time), -1))
     return dta
+"""
 
 
 def In_Out(list_data):
@@ -57,6 +75,7 @@ def In_Out(list_data):
             Out.append(p)
     return In, Out
 
+
 ############### TIME FEATURES #####################
 
 def inter_pkt_time(list_data):
@@ -66,12 +85,14 @@ def inter_pkt_time(list_data):
         temp.append(next_elem-elem)
     return temp[:-1]
 
+
 def interarrival_times(list_data):
     In, Out = In_Out(list_data)
     IN = inter_pkt_time(In)
     OUT = inter_pkt_time(Out)
     TOTAL = inter_pkt_time(list_data)
     return IN, OUT, TOTAL
+
 
 def interarrival_maxminmeansd_stats(list_data):
     interstats = []
@@ -92,6 +113,7 @@ def interarrival_maxminmeansd_stats(list_data):
     else:
         interstats.extend(([0]*15))
     return interstats
+
 
 def time_percentile_stats(trace_data):
     Total = get_pkt_list(trace_data)
@@ -123,10 +145,12 @@ def time_percentile_stats(trace_data):
         STATS.extend(([0]*4))
     return STATS
 
+
 def number_pkt_stats(trace_data):
     Total = get_pkt_list(trace_data)
     In, Out = In_Out(Total)
     return len(In), len(Out), len(Total)
+
 
 def first_and_last_30_pkts_stats(trace_data):
     Total = get_pkt_list(trace_data)
@@ -153,6 +177,7 @@ def first_and_last_30_pkts_stats(trace_data):
     stats.append(len(last30out))
     return stats
 
+
 #concentration of outgoing packets in chunks of 20 packets
 def pkt_concentration_stats(trace_data):
     Total = get_pkt_list(trace_data)
@@ -165,6 +190,7 @@ def pkt_concentration_stats(trace_data):
                 c+=1
         concentrations.append(c)
     return np.std(concentrations), sum(concentrations)/float(len(concentrations)), np.percentile(concentrations, 50), min(concentrations), max(concentrations), concentrations
+
 
 #Average number packets sent and received per second
 def number_per_sec(trace_data):
@@ -184,6 +210,7 @@ def number_per_sec(trace_data):
         l.append(x)
     avg_number_per_sec = sum(l)/float(len(l))
     return avg_number_per_sec, np.std(l), np.percentile(l, 50), min(l), max(l), l
+
 
 #Variant of packet ordering features from http://cacr.uwaterloo.ca/techreports/2014/cacr2014-05.pdf
 def avg_pkt_ordering_stats(trace_data):
@@ -211,55 +238,57 @@ def perc_inc_out(trace_data):
     percentage_out = len(Out)/float(len(Total))
     return percentage_in, percentage_out
 
+
 ############### SIZE FEATURES #####################
+"""
+def total_size(list_data):
+   return sum([x[1] for x in list_data])
 
-#def total_size(list_data):
-#    return sum([x[1] for x in list_data])
+def in_out_size(list_data):
+   In, Out = In_Out(list_data)
+   size_in = sum([x[1] for x in In])
+   size_out = sum([x[1] for x in Out])
+   return size_in, size_out
 
-#def in_out_size(list_data):
-#    In, Out = In_Out(list_data)
-#    size_in = sum([x[1] for x in In])
-#    size_out = sum([x[1] for x in Out])
-#    return size_in, size_out
+def average_total_pkt_size(list_data):
+   return np.mean([x[1] for x in list_data])
 
-#def average_total_pkt_size(list_data):
-#    return np.mean([x[1] for x in list_data])
+def average_in_out_pkt_size(list_data):
+   In, Out = In_Out(list_data)
+   average_size_in = np.mean([x[1] for x in In])
+   average_size_out = np.mean([x[1] for x in Out])
+   return average_size_in, average_size_out
 
-#def average_in_out_pkt_size(list_data):
-#    In, Out = In_Out(list_data)
-#    average_size_in = np.mean([x[1] for x in In])
-#    average_size_out = np.mean([x[1] for x in Out])
-#    return average_size_in, average_size_out
+def variance_total_pkt_size(list_data):
+   return np.var([x[1] for x in list_data])
 
-#def variance_total_pkt_size(list_data):
-#    return np.var([x[1] for x in list_data])
+def variance_in_out_pkt_size(list_data):
+   In, Out = In_Out(list_data)
+   var_size_in = np.var([x[1] for x in In])
+   var_size_out = np.var([x[1] for x in Out])
+   return var_size_in, var_size_out
 
-#def variance_in_out_pkt_size(list_data):
-#    In, Out = In_Out(list_data)
-#    var_size_in = np.var([x[1] for x in In])
-#    var_size_out = np.var([x[1] for x in Out])
-#    return var_size_in, var_size_out
+def std_total_pkt_size(list_data):
+   return np.std([x[1] for x in list_data])
 
-#def std_total_pkt_size(list_data):
-#    return np.std([x[1] for x in list_data])
+def std_in_out_pkt_size(list_data):
+   In, Out = In_Out(list_data)
+   std_size_in = np.std([x[1] for x in In])
+   std_size_out = np.std([x[1] for x in Out])
+   return std_size_in, std_size_out
 
-#def std_in_out_pkt_size(list_data):
-#    In, Out = In_Out(list_data)
-#    std_size_in = np.std([x[1] for x in In])
-#    std_size_out = np.std([x[1] for x in Out])
-#    return std_size_in, std_size_out
+def max_in_out_pkt_size(list_data):
+   In, Out = In_Out(list_data)
+   max_size_in = max([x[1] for x in In])
+   max_size_out = max([x[1] for x in Out])
+   return max_size_in, max_size_out
 
-#def max_in_out_pkt_size(list_data):
-#    In, Out = In_Out(list_data)
-#    max_size_in = max([x[1] for x in In])
-#    max_size_out = max([x[1] for x in Out])
-#    return max_size_in, max_size_out
+def unique_pkt_lengths(list_data):
+   pass
+"""
 
-#def unique_pkt_lengths(list_data):
-#    pass
 
 ############### FEATURE FUNCTION #####################
-
 
 #If size information available add them in to function below
 def TOTAL_FEATURES(trace_data, max_size=175):
@@ -286,16 +315,17 @@ def TOTAL_FEATURES(trace_data, max_size=175):
         alt_per_sec.append(0)
 
     # ------SIZE--------
-
-    #tot_size = total_size(list_data)
-    #in_size, out_size = in_out_size(list_data)
-    #avg_total_size = average_total_pkt_size(list_data)
-    #avg_size_in, avg_size_out = average_in_out_pkt_size(list_data)
-    #var_total_size = variance_total_pkt_size(list_data)
-    #var_size_in, var_size_out = variance_in_out_pkt_size(list_data)
-    #std_total_size = std_total_pkt_size(list_data)
-    #std_size_in, std_size_out = std_in_out_pkt_size(list_data)
-    #max_size_in, max_size_out = max_in_out_pkt_size(list_data)
+    """
+    tot_size = total_size(list_data)
+    in_size, out_size = in_out_size(list_data)
+    avg_total_size = average_total_pkt_size(list_data)
+    avg_size_in, avg_size_out = average_in_out_pkt_size(list_data)
+    var_total_size = variance_total_pkt_size(list_data)
+    var_size_in, var_size_out = variance_in_out_pkt_size(list_data)
+    std_total_size = std_total_pkt_size(list_data)
+    std_size_in, std_size_out = std_in_out_pkt_size(list_data)
+    max_size_in, max_size_out = max_in_out_pkt_size(list_data)
+    """
 
     # TIME Features
     ALL_FEATURES.extend(intertimestats)
@@ -326,34 +356,33 @@ def TOTAL_FEATURES(trace_data, max_size=175):
     ALL_FEATURES.append(sum(number_pkts))
 
     #SIZE FEATURES
-    #ALL_FEATURES.append(tot_size)
-    #ALL_FEATURES.append(in_size)
-    #ALL_FEATURES.append(out_size)
-    #ALL_FEATURES.append(avg_total_size)
-    #ALL_FEATURES.append(avg_size_in)
-    #ALL_FEATURES.append(avg_size_out)
-    #ALL_FEATURES.append(var_total_size)
-    #ALL_FEATURES.append(var_size_in)
-    #ALL_FEATURES.append(var_size_out)
-    #ALL_FEATURES.append(std_total_size)
-    #ALL_FEATURES.append(std_size_in)
-    #ALL_FEATURES.append(std_size_out)
-    #ALL_FEATURES.append(max_size_in)
-    #ALL_FEATURES.append(max_size_out)
+    """
+    ALL_FEATURES.append(tot_size)
+    ALL_FEATURES.append(in_size)
+    ALL_FEATURES.append(out_size)
+    ALL_FEATURES.append(avg_total_size)
+    ALL_FEATURES.append(avg_size_in)
+    ALL_FEATURES.append(avg_size_out)
+    ALL_FEATURES.append(var_total_size)
+    ALL_FEATURES.append(var_size_in)
+    ALL_FEATURES.append(var_size_out)
+    ALL_FEATURES.append(std_total_size)
+    ALL_FEATURES.append(std_size_in)
+    ALL_FEATURES.append(std_size_out)
+    ALL_FEATURES.append(max_size_in)
+    ALL_FEATURES.append(max_size_out)
+    """
 
     # This is optional, since all other features are of equal size this gives the first n features
     # of this particular feature subset, some may be padded with 0's if too short.
-
     ALL_FEATURES.extend(conc)
-
     ALL_FEATURES.extend(per_sec)
-
 
     while len(ALL_FEATURES)<max_size:
         ALL_FEATURES.append(0)
     features = ALL_FEATURES[:max_size]
+    return features         # CHANGE: changed tuple to list
 
-    return tuple(features)
 
 if __name__ == '__main__':
     pass

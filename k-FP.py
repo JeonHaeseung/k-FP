@@ -29,7 +29,7 @@ alexa_monitored_data = f"{data_dir}/alexa"
 hs_monitored_data = f"{data_dir}/hs_mon"
 unmonitored_data = f"{data_dir}/unmon"
 
-dic_of_feature_data = f"{data_dir}/flitered_45class_800inst.npz"    # the dataset that will use for feature extraction
+dic_of_feature_data = f"{data_dir}/tiktok.npz"          # the dataset that will use for feature extraction
 dic_of_mon_data = f"{data_dir}/mon.pkl"                 # final feature that will use
 dic_of_umon_data = f"{data_dir}/unmon.pkl"              # final feature that will use
 
@@ -62,8 +62,8 @@ threshold = None
 
 # CHANGE: added log file
 timestamp = time.strftime("%Y%m%d_%H%M%S")
-file_name= f"/home/cathyjeon/ALL_MODEL/KFP/open/result/kfp_{setting}_{timestamp}.csv"
-log_file =  open(file_name, "w")
+file_name= f"{current_dir}/result/kfp_{setting}_{timestamp}.csv"
+log_file = open(file_name, "w")
 
 
 ############ Feeder functions ############

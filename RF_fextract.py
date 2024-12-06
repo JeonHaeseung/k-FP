@@ -6,15 +6,16 @@ import sys
 import numpy as np
 
 """Feeder functions"""
+# CHANGE: iterator.next() to next(iterator)
 def neighborhood(iterable):
     iterator = iter(iterable)
     prev = (0)
-    item = iterator.next()  # throws StopIteration if empty.
-    for next in iterator:
-        yield (prev,item,next)
+    item = next(iterator)  # throws StopIteration if empty.
+    for next_item in iterator:
+        yield (prev, item, next_item)
         prev = item
-        item = next
-    yield (prev,item,None)
+        item = next_item
+    yield (prev, item, None)
 
 
 def chunkIt(seq, num):
@@ -28,12 +29,14 @@ def chunkIt(seq, num):
 
 
 """Non-feeder functions"""
+# CHANGE: added zero padding removal
 def trunc_zero_padding(trace):
     start_zero_padding_index = np.asarray(np.where(trace!=0))[0][-1]
     trace = trace[:(start_zero_padding_index+1)]
     return trace
 
 
+# CHANGE: changed format from "direction time size" to "direction*timestamp"
 def get_pkt_list(trace_data, filename=None):
     trace_data = trunc_zero_padding(trace_data)
     dta = []
@@ -181,7 +184,7 @@ def first_and_last_30_pkts_stats(trace_data):
 #concentration of outgoing packets in chunks of 20 packets
 def pkt_concentration_stats(trace_data):
     Total = get_pkt_list(trace_data)
-    chunks= [Total[x:x+20] for x in xrange(0, len(Total), 20)]
+    chunks= [Total[x:x+20] for x in range(0, len(Total), 20)]   # CHANGE: xrange to range
     concentrations = []
     for item in chunks:
         c = 0

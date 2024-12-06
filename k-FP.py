@@ -6,6 +6,7 @@ import dill
 import random
 import argparse
 import operator
+from tqdm import tqdm
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -28,9 +29,9 @@ alexa_monitored_data = f"{data_dir}/alexa"
 hs_monitored_data = f"{data_dir}/hs_mon"
 unmonitored_data = f"{data_dir}/unmon"
 
-dic_of_feature_data = f"{data_dir}/mon_bing_100.npz" # the dataset that will use for feature extraction
-dic_of_mon_data = f"{data_dir}/mon_bing_100.pkl"     # final feature that will use
-dic_of_umon_data = f"{data_dir}/unmon_all.pkl"                   # final feature that will use
+dic_of_feature_data = f"{data_dir}/flitered_45class_800inst.npz"    # the dataset that will use for feature extraction
+dic_of_mon_data = f"{data_dir}/mon.pkl"                 # final feature that will use
+dic_of_umon_data = f"{data_dir}/unmon.pkl"              # final feature that will use
 
 
 ### Parameters ###
@@ -79,7 +80,8 @@ def checkequal(lst):
 
 ############ Non-Feeder functions ########
 
-def dictionary_(path_to_dict = dic_of_feature_data,
+def dictionary_(path_to_output_dict,
+                path_to_input_dict = dic_of_feature_data,
                 path_to_alexa = alexa_monitored_data, 
                 path_to_hs = hs_monitored_data, 
                 path_to_unmon = unmonitored_data,
@@ -99,6 +101,20 @@ def dictionary_(path_to_dict = dic_of_feature_data,
                  'unmonitored_label': []}
 
     print("Creating Alexa features...")
+    # CHANGE: changed to npz file format
+    train_data = np.load(path_to_input_dict)
+    x_train, y_train = train_data['data'], train_data['labels']
+
+    for label in tqdm(range(alexa_sites)):
+        instances = x_train[y_train == label]
+        for idx, instance in enumerate(instances):
+            g = []
+            g.append(RF_fextract.TOTAL_FEATURES(instance))
+            data_dict['alexa_feature'].append(g)
+            data_dict['alexa_label'].append((label, idx))
+
+    # orignal
+    """
     for i in range(alexa_sites):
         for j in range(alexa_instances):
             fname = str(i) + "_" + str(j)
@@ -108,10 +124,9 @@ def dictionary_(path_to_dict = dic_of_feature_data,
                 g.append(RF_fextract.TOTAL_FEATURES(tcp_dump))
                 data_dict['alexa_feature'].append(g)
                 data_dict['alexa_label'].append((i,j))
-        print(i)
 
     print("Creating HS features...")
-    for i in range(1, hs_sites + 1):
+    for i in tqdm(range(1, hs_sites + 1)):
         for j in range(hs_instances):
             fname = str(i) + "_" + str(j) + ".txt"
             if os.path.exists(path_to_hs + fname):
@@ -120,7 +135,6 @@ def dictionary_(path_to_dict = dic_of_feature_data,
                 g.append(RF_fextract.TOTAL_FEATURES(tcp_dump))
                 data_dict['hs_feature'].append(g)
                 data_dict['hs_label'].append((i,j))
-        print(i)
 
     print("Creating Unmonitored features...")
     d, e = alexa_sites + 1, 0
@@ -137,12 +151,13 @@ def dictionary_(path_to_dict = dic_of_feature_data,
             e += 1
         else:
             d += 1
+    """
 
     assert len(data_dict['alexa_feature']) == len(data_dict['alexa_label'])
-    assert len(data_dict['hs_feature']) == len(data_dict['hs_label'])
-    assert len(data_dict['unmonitored_feature']) == len(data_dict['unmonitored_label'])
-    fileObject = open(path_to_dict, 'wb')
-    dill.dump(data_dict,fileObject)
+    #assert len(data_dict['hs_feature']) == len(data_dict['hs_label'])
+    #assert len(data_dict['unmonitored_feature']) == len(data_dict['unmonitored_label'])
+    fileObject = open(path_to_output_dict, 'wb')
+    dill.dump(data_dict, fileObject)
     fileObject.close()
 
 
@@ -485,7 +500,7 @@ if __name__ == "__main__":
     if args.dictionary:
         # Example command line:
         # $ python3 k-FP.py --dictionary
-        dictionary_()
+        dictionary_(path_to_output_dict=dic_of_mon_data)
 
     # closed world experiments
     elif args.RF_closedworld:

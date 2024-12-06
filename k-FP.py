@@ -23,8 +23,8 @@ import RF_fextract
 ### Paths to data ###
 # CHANGE: directory that will use when extracting feature
 current_dir = os.path.dirname(__file__)
-data_dir = os.path.join(current_dir, 'data')
-result_dir = os.path.join(current_dir, 'result')
+data_dir = os.path.join(current_dir, 'dataset')
+result_dir = os.path.join(current_dir, 'results')
 alexa_monitored_data = f"{data_dir}/alexa"
 hs_monitored_data = f"{data_dir}/hs_mon"
 unmonitored_data = f"{data_dir}/unmon"
@@ -62,7 +62,7 @@ threshold = None
 
 # CHANGE: added log file
 timestamp = time.strftime("%Y%m%d_%H%M%S")
-file_name= f"{current_dir}/result/kfp_{setting}_{timestamp}.csv"
+file_name= f"{current_dir}/results/kfp_{setting}_{timestamp}.csv"
 log_file = open(file_name, "w")
 
 
